@@ -15,6 +15,3 @@ Then, place the file in the `src/Data/` directory and run the following command 
 
 ```sh
 python main.py FILE_NAME
-markdown
-Copia
-Modifica
