@@ -15,3 +15,9 @@ Then, place the file in the `src/Data/` directory and run the following command 
 
 ```sh
 python main.py FILE_NAME
+```
+This will generate a new CSV file in the Results folder:
+
+Copia
+Modifica
+Results/Result_FILE_NAME.csv
