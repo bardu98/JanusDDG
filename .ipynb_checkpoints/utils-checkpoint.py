@@ -1,63 +1,6 @@
-#########
-#import #
-#########
-import sys
-import numpy as np
-from Bio import PDB
-import pandas as pd
-import seaborn as sns
-import os
-import pickle
-import random
-import torch
-import esm
-import re
-import math
-from Bio import SeqIO
-#from utils import old_aa, position_aa, new_aa,Esm2_embedding ,Create_mut_sequence_multiple, dataset_builder
-import argparse
-import torch.nn.functional as F
-from torch.nn import Linear
-import torch.nn as nn
-from sklearn.metrics import mean_squared_error
-from scipy.stats import pearsonr, spearmanr
-import random
-from sklearn.metrics import root_mean_squared_error,mean_absolute_error, accuracy_score,mean_squared_error
-from torch.utils.data import DataLoader, Dataset, SubsetRandomSampler
-import copy
-from random import sample
-
-
-
-#################
-# ESM2 Function #
-#################
-
-model_esm, alphabet_esm = esm.pretrained.esm2_t33_650M_UR50D()
-
-device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
-model_esm = model_esm.to(device)
-batch_converter_esm = alphabet_esm.get_batch_converter()
-model_esm.eval()
-
-def Esm2_embedding(seq, model_esm = model_esm, batch_converter_esm = batch_converter_esm):
-    sequences = [("protein", seq),]
-    
-    batch_labels, batch_strs, batch_tokens = batch_converter_esm(sequences)
-    batch_tokens = batch_tokens.to(device)
-
-    with torch.no_grad():
-        results = model_esm(batch_tokens, repr_layers=[33])  # Usa l'ultimo layer
-        token_representations = results["representations"][33]
-    
-    # Remove the special tokens 
-    embedding = token_representations[0, 1:-1].cpu().numpy()
-    return embedding  #Output: L_SEQ X D_EMB
-
-
-#############################
-# DATA PROCESSING FUNCTIONS #
-#############################
+################################################################
+#####  PROCESS FUNC ################################################
+##################################################################
 
 def old_aa(row, mut_col_name='MTS'):
 
@@ -94,6 +37,36 @@ def new_aa(row,mut_col_name='MTS'):
     return new_aa_list
 
 
+
+###########################
+#ESM2
+import esm
+import torch
+model_esm, alphabet_esm = esm.pretrained.esm2_t33_650M_UR50D()
+
+device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
+model_esm = model_esm.to(device)
+batch_converter_esm = alphabet_esm.get_batch_converter()
+model_esm.eval()
+
+def Esm2_embedding(seq, model_esm = model_esm, batch_converter_esm = batch_converter_esm):
+    sequences = [("protein", seq),]
+    
+    batch_labels, batch_strs, batch_tokens = batch_converter_esm(sequences)
+    batch_tokens = batch_tokens.to(device)
+
+    with torch.no_grad():
+        results = model_esm(batch_tokens, repr_layers=[33])  # Usa l'ultimo layer
+        token_representations = results["representations"][33]
+    
+    # Remove the special tokens 
+    embedding = token_representations[0, 1:-1].cpu().numpy()
+    return embedding  #Output: L_SEQ X D_EMB
+###########################
+
+
+
+
 def Create_mut_sequence_multiple(sequence_wild, position_real, old_AA, new_AA, debug = True):
 
     if debug:
@@ -110,7 +83,8 @@ def Create_mut_sequence_multiple(sequence_wild, position_real, old_AA, new_AA, d
     return mut_sequence
 
 
-def dataset_builder(dataset_mutations, dataset_sequences,debug=True):
+
+def dataset_builder(dataset_mutations, dataset_sequences,):
     
     dataset = [] 
     lista_proteine = set(dataset_sequences['ID'])
@@ -138,7 +112,7 @@ def dataset_builder(dataset_mutations, dataset_sequences,debug=True):
             sequence_wild = sequence_original
             #Embedding Mut ESM2
             try:
-                mut_sequence = Create_mut_sequence_multiple(sequence_original, position_real, old_AA, new_AA,debug=debug)
+                mut_sequence = Create_mut_sequence_multiple(sequence_original, position_real, old_AA, new_AA)
             except:
                 print(f'Errore:{id}')
                 continue
@@ -151,6 +125,9 @@ def dataset_builder(dataset_mutations, dataset_sequences,debug=True):
 
             #inserisco posizione della mutazione
             sample_protein['pos_mut'] = position_real
+            sample_protein['ddg'] = item['DDG']
+            sample_protein['Sequence'] = item['Sequence']
+            
             
             assert sample_protein['length'] == sample_protein['wild_type'].shape[0]
             assert sample_protein['length'] == sample_protein['mut_type'].shape[0]
@@ -162,6 +139,34 @@ def dataset_builder(dataset_mutations, dataset_sequences,debug=True):
             print(f'{id} not in data')
 
     return dataset
+
+
+
+
+
+
+
+
+
+
+
+import sys
+import numpy as np
+from Bio import PDB
+import pandas as pd
+import seaborn as sns
+import os
+import pickle
+import random
+import torch
+import esm
+import re
+import math
+from Bio import SeqIO
+
+from utils import old_aa, position_aa, new_aa,Esm2_embedding ,Create_mut_sequence_multiple, dataset_builder
+import argparse
+
 
 
 def process_data(path_df):
@@ -177,84 +182,59 @@ def process_data(path_df):
     dataset_mutations['New_AA'] = dataset_mutations.apply(new_aa, axis = 1)
     dataset_mutations['Pos_AA'] = dataset_mutations['Pos_AA'].map(lambda x: [i-1 for i in x])
     
-    dataset_processed = dataset_builder(dataset_mutations, dataset_sequences, debug=False)
+    dataset_processed = dataset_builder(dataset_mutations, dataset_sequences,)
     
     return dataset_processed
+
+################################################################
+##### END PROCESS FUNC #########################################
+################################################################
 
 
 
 ################################################################
 ##### PREDICT FUNC #########################################
 ################################################################
+import pandas as pd
+import numpy as np
+import torch
+from torch_geometric.data import Data
+import pickle
+import seaborn as sns
 
+from torch_geometric.utils import to_networkx
+#install required packages
+import os
+import torch
+os.environ['TORCH'] = torch.__version__
+print(torch.__version__)
+# Helper function for visualization.
+import networkx as nx
+import matplotlib.pyplot as plt
 
-def set_seed(seed):
-    random.seed(seed)  # Python random
-    np.random.seed(seed)  # Numpy random
-    torch.manual_seed(seed)  # PyTorch CPU
-    torch.cuda.manual_seed(seed)  # PyTorch GPU (un singolo dispositivo)
-    torch.cuda.manual_seed_all(seed)  # PyTorch GPU (tutti i dispositivi, se usi multi-GPU)
-    torch.backends.cudnn.deterministic = True  # Comportamento deterministico di cuDNN
-    torch.backends.cudnn.benchmark = False  # Evita che cuDNN ottimizzi dinamicamente (influisce su riproducibilità)
+from torch_geometric.data import Dataset
+import torch_geometric.utils as pyg_utils
+import torch.nn.functional as F
+from torch_geometric.nn import GCNConv, global_mean_pool,GATv2Conv
+from torch_geometric.nn.models import GCN, GAT
+from torch.nn import Linear
 
+from torch_geometric.utils import degree
 
-class DeltaDataset(Dataset):
-    def __init__(self, data, dim_embedding, inv = False):
-        self.data = data
-        self.dim_embedding = dim_embedding
-        self.inv = inv
-
-    def __len__(self):
-        return len(self.data)
-
-    def __getitem__(self, idx):
-        sample = self.data[idx]
-
-        if self.inv: 
-            return {
-                'id': sample['id'],
-                'wild_type': torch.tensor(sample['mut_type'], dtype=torch.float32),    #inverto mut con wild 
-                'mut_type': torch.tensor(sample['wild_type'], dtype=torch.float32),    #inverto mut con wild             
-                'length': torch.tensor(sample['length'], dtype=torch.float32),
-                }
-
-        else:
-            return {
-                'id': sample['id'],
-                'wild_type': torch.tensor(sample['wild_type'], dtype=torch.float32),
-                'mut_type': torch.tensor(sample['mut_type'],dtype=torch.float32),
-                'length': torch.tensor(sample['length'], dtype=torch.float32),
-                }
+import torch.nn as nn
+from torch_geometric.utils import softmax
+import math
+from sklearn.metrics import mean_squared_error
+from scipy.stats import pearsonr, spearmanr
+import random
+from sklearn.metrics import root_mean_squared_error,mean_absolute_error
+from torch.utils.data import DataLoader, Dataset, SubsetRandomSampler
+import copy
 
 
 
-def collate_fn(batch):
-    max_len = max(sample['wild_type'].shape[0] for sample in batch)  
-    max_features = max(sample['wild_type'].shape[1] for sample in batch)  # Max feature size
 
-    padded_batch = {
-        'id': [],
-        'wild_type': [],
-        'mut_type': [],
-        'length': [],
-        }
-    for sample in batch:
-        wild_type_padded = F.pad(sample['wild_type'], (0, max_features - sample['wild_type'].shape[1], 
-                                                       0, max_len - sample['wild_type'].shape[0]))
-        mut_type_padded = F.pad(sample['mut_type'], (0, max_features - sample['mut_type'].shape[1], 
-                                                     0, max_len - sample['mut_type'].shape[0]))
-
-        padded_batch['id'].append(sample['id'])  
-        padded_batch['wild_type'].append(wild_type_padded)  
-        padded_batch['mut_type'].append(mut_type_padded)  
-        padded_batch['length'].append(sample['length'])#append(torch.tensor(sample['length'], dtype=torch.float32))  
-
-    # Convert list of tensors into a single batch tensor
-    padded_batch['wild_type'] = torch.stack(padded_batch['wild_type'])  # Shape: (batch_size, max_len, max_features)
-    padded_batch['mut_type'] = torch.stack(padded_batch['mut_type'])  
-    padded_batch['length'] = torch.stack(padded_batch['length'])  
-    
-    return padded_batch
+from random import sample
 
 
 
@@ -376,13 +356,20 @@ class TransformerRegression(nn.Module):
         
         self.norm3 = nn.LayerNorm(dim_position_wise_FFN)
         self.norm4 = nn.LayerNorm(dim_position_wise_FFN)        
-        self.router = nn.Linear(dim_position_wise_FFN, num_experts) 
+        self.router = nn.Linear(dim_position_wise_FFN, num_experts) #dim_position_wise_FFN*2
+        # Mixture of Experts (Switch FFN)
         self.num_experts = num_experts
         self.experts = nn.ModuleList([nn.Sequential(
             nn.Linear(dim_position_wise_FFN, 512),
             self.act,
             nn.Linear(512, dim_position_wise_FFN)
         ) for _ in range(num_experts)])
+        # self.experts = nn.Sequential(
+        #     nn.Linear(dim_position_wise_FFN, 512),
+        #     self.act,
+        #     nn.Linear(512, dim_position_wise_FFN)
+        #     )
+        
 
         self.Linear_ddg = nn.Linear(dim_position_wise_FFN*2, 1)
 
@@ -399,16 +386,17 @@ class TransformerRegression(nn.Module):
         return mask
 
     def forward(self, delta_w_m, x_wild, length):
+            # Add positional encoding
             
             delta_w_m = delta_w_m.transpose(1, 2)  # (batch_size, feature_dim, seq_len) -> (seq_len, batch_size, feature_dim)
             C_delta_w_m = self.conv1d(delta_w_m)
-            # C_delta_w_m = self.act(C_delta_w_m)  
+            # C_delta_w_m = self.act(C_delta_w_m)  #CASTRENSE USA RELU IO NON AVEVO MESSO NULLA 
             C_delta_w_m = C_delta_w_m.transpose(1, 2)  # (seq_len, batch_size, feature_dim) -> (batch_size, seq_len, feature_dim)
             C_delta_w_m = self.positional_encoding(C_delta_w_m)
             
             x_wild = x_wild.transpose(1, 2)  # (batch_size, feature_dim, seq_len) -> (seq_len, batch_size, feature_dim)
             C_x_wild = self.conv1d_wild(x_wild)
-            # C_x_wild = self.act(C_x_wild)  
+            # C_x_wild = self.act(C_x_wild)  #CASTRENSE USA RELU IO NON AVEVO MESSO NULLA 
             C_x_wild = C_x_wild.transpose(1, 2)  # (seq_len, batch_size, feature_dim) -> (batch_size, seq_len, feature_dim)
             C_x_wild = self.positional_encoding(C_x_wild)            
             
@@ -432,6 +420,7 @@ class TransformerRegression(nn.Module):
                     inverse_attn_output = self.norm2(inverse_attn_output)
                     
                     attn_output = torch.cat([direct_attn_output, inverse_attn_output], dim=-1)
+                    #combined_output = self.norm3(combined_output)
 
                 else:
                     if self.speach_att_type:
@@ -452,22 +441,22 @@ class TransformerRegression(nn.Module):
                 attn_output = self.norm1(attn_output)
 
 
-            # ########
-            # # Route tokens to experts
-            # routing_logits = self.router(attn_output)  # Shape: [batch, seq_len, num_experts]
-            # routing_weights = F.softmax(routing_logits, dim=-1)  # Probability distribution over experts
-            # expert_indices = torch.argmax(routing_weights, dim=-1)  # Choose the most probable expert for each token
+            ########
+            # Route tokens to experts
+            routing_logits = self.router(attn_output)  # Shape: [batch, seq_len, num_experts]
+            routing_weights = F.softmax(routing_logits, dim=-1)  # Probability distribution over experts
+            expert_indices = torch.argmax(routing_weights, dim=-1)  # Choose the most probable expert for each token
             
-            # # Apply selected expert
-            # batch_size, seq_len, embed_dim = attn_output.shape
-            # output = torch.zeros_like(attn_output)
-            # for i in range(self.num_experts):
-            #     mask = (expert_indices == i).unsqueeze(-1).float()  # Mask for tokens assigned to expert i
-            #     expert_out = self.experts[i](attn_output) * mask  # Apply expert only to selected tokens
-            #     output += expert_out  # Aggregate expert outputs
-            # ############ù
+            # Apply selected expert
+            batch_size, seq_len, embed_dim = attn_output.shape
+            output = torch.zeros_like(attn_output)
+            for i in range(self.num_experts):
+                mask = (expert_indices == i).unsqueeze(-1).float()  # Mask for tokens assigned to expert i
+                expert_out = self.experts[i](attn_output) * mask  # Apply expert only to selected tokens
+                output += expert_out  # Aggregate expert outputs
+            ############ù
 
-            output = self.experts[0](attn_output)
+            # output = self.experts(attn_output)
 
             position_attn_output = attn_output + output
 
@@ -485,13 +474,7 @@ class TransformerRegression(nn.Module):
 
 
 
-def dataloader_generation_pred(dataset_test, batch_size = 128, dataloader_shuffle = True, inv= False):
-    
-    dim_embedding = 1280
-    dataset_test = DeltaDataset(dataset_test, dim_embedding, inv = inv)
-    dataloader_test = DataLoader(dataset_test, batch_size=batch_size, shuffle=dataloader_shuffle, collate_fn=collate_fn)
 
-    return dataloader_test
 
 
 def model_performance_test(model, dataloader_test):
@@ -503,11 +486,14 @@ def model_performance_test(model, dataloader_test):
        
         for i, batch in enumerate(dataloader_test):
 
-            predictions_test=output_model_from_batch(batch, model, device, train=True)
+            predictions_test=output_model_from_batch(batch, model, device, train=False)
             all_predictions_test.append(predictions_test)
     
     return all_predictions_test
 
+
+
+##############    metrics
 
 
 def metrics(pred_dir=None, pred_inv=None, true_dir=None):
@@ -549,3 +535,7 @@ def metrics(pred_dir=None, pred_inv=None, true_dir=None):
         
         print(f'PCC d-r: {pearsonr(pred_dir,pred_inv)}\n')
         print(f'anti-symmetry bias: {np.mean(pred_dir + pred_inv)}\n-----------------------\n')
+
+
+
+
