@@ -12,7 +12,7 @@ args = parser.parse_args()
 print(f"Dataset processed: {args.df_path}")
 
 # preprocessing with ESM2 650ML param
-df_preprocessed = process_data('../data/' + args.df_path)
+df_preprocessed = process_data('./data/' + args.df_path)
 
 def set_seed(seed):
     random.seed(seed)  # Python random
@@ -31,7 +31,7 @@ device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 transf_parameters={'input_dim':1280, 'num_heads':8,
                     'dropout_rate':0.,}
 
-best_model=torch.load('../../DeltaDelta_BELLO/JanusDDG_28epochs_finetuned_zeros_MODELLO_FINALE.pth')#torch.load('JanusDDG_300epochs_FINALE.pth')#torch.load('../../DeltaDelta_BELLO/JanusDDG_28epochs_finetuned_zeros_MODELLO_FINALE.pth')#('../../DeltaDelta_BELLO/JanusDDG_300epochs_plus25_hydra_slim.pth')
+best_model=torch.load('./models/DeltaDelta_BELLO/JanusDDG_28epochs_finetuned_zeros_MODELLO_FINALE.pth')#torch.load('JanusDDG_300epochs_FINALE.pth')#torch.load('../../DeltaDelta_BELLO/JanusDDG_28epochs_finetuned_zeros_MODELLO_FINALE.pth')#('../../DeltaDelta_BELLO/JanusDDG_300epochs_plus25_hydra_slim.pth')
 best_model.eval()
 
 dataloader_test_dir = dataloader_generation_pred(dataset_test=df_preprocessed,  batch_size = 1, dataloader_shuffle = False, inv= False)
@@ -43,9 +43,9 @@ all_predictions_test_dir = model_performance_test(best_model,dataloader_test_dir
 all_predictions_test_inv = model_performance_test(best_model,dataloader_test_inv)
 
 
-df_output = pd.read_csv('../data/' + args.df_path)
+df_output = pd.read_csv('./data/' + args.df_path)
 df_output['DDG_JanusDDG'] = pd.Series(torch.cat(all_predictions_test_dir, dim=0).cpu()).values
-df_output.to_csv(f'../results/Result_{args.df_path}', index=False)   
+df_output.to_csv(f'./results/Result_{args.df_path}', index=False)
 
 print(f'\n ________Processed: {args.df_path}__________ \n')
 

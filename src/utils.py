@@ -1,31 +1,15 @@
-#########
-#import #
-#########
-import sys
 import numpy as np
-from Bio import PDB
 import pandas as pd
-import seaborn as sns
-import os
-import pickle
 import random
 import torch
 import esm
-import re
-import math
-from Bio import SeqIO
-#from utils import old_aa, position_aa, new_aa,Esm2_embedding ,Create_mut_sequence_multiple, dataset_builder
-import argparse
 import torch.nn.functional as F
-from torch.nn import Linear
 import torch.nn as nn
 from sklearn.metrics import mean_squared_error
 from scipy.stats import pearsonr, spearmanr
 import random
 from sklearn.metrics import root_mean_squared_error,mean_absolute_error, accuracy_score,mean_squared_error
-from torch.utils.data import DataLoader, Dataset, SubsetRandomSampler
-import copy
-from random import sample
+from torch.utils.data import DataLoader, Dataset
 
 
 

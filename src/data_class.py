@@ -1,44 +1,15 @@
-import pandas as pd
-import numpy as np
 import torch
-from torch_geometric.data import Data
-import pickle
-import seaborn as sns
-
-from torch_geometric.utils import to_networkx
 #install required packages
 import os
 import torch
 os.environ['TORCH'] = torch.__version__
-print(torch.__version__)
-# Helper function for visualization.
-%matplotlib inline
-import networkx as nx
-import matplotlib.pyplot as plt
-
-from torch_geometric.data import Dataset
-import torch_geometric.utils as pyg_utils
 import torch.nn.functional as F
-from torch_geometric.nn import GCNConv, global_mean_pool,GATv2Conv
-from torch_geometric.nn.models import GCN, GAT
-from torch.nn import Linear
-
-from torch_geometric.utils import degree
-
-import torch.nn as nn
-from torch_geometric.utils import softmax
-import math
-from sklearn.metrics import mean_squared_error
-from scipy.stats import pearsonr, spearmanr
-import random
-from sklearn.metrics import root_mean_squared_error,mean_absolute_error
-from torch.utils.data import DataLoader, Dataset, SubsetRandomSampler
-import copy
+from torch.utils.data import DataLoader, Dataset
+from torch.utils.data import DataLoader
+import torch
+import torch.nn.functional as F
 
 
-
-
-from random import sample
 
 class DeltaDataset(Dataset):
     def __init__(self, data, dim_embedding, inv = False):
@@ -69,12 +40,6 @@ class DeltaDataset(Dataset):
                 }
 
 
-import random
-from torch.utils.data import DataLoader
-
-
-import torch
-import torch.nn.functional as F
 
 def collate_fn(batch):
     max_len = max(sample['wild_type'].shape[0] for sample in batch)  
