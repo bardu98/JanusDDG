@@ -48,8 +48,8 @@ coverage.xml
 
 # Large data files
 *.h5
-*.csv
-*.tsv
+#*.csv
+#*.tsv
 *.json
 *.pkl
 *.joblib
