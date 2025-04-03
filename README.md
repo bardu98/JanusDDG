@@ -1,8 +1,23 @@
 # JanusDDG  
 
-This repository contains the code related to the paper *JanusDDG*.  
+Protein stability prediction tool presented in the *JanusDDG* paper.
 
-## Usage  
+## Prerequisites
+
+- Conda package manager (Miniconda or Anaconda installed)
+
+## Installation
+
+1. Create and activate the Conda environment:
+```bash
+conda env create -f environment.yml
+conda activate janus_env
+
+```
+
+
+
+## Usage
 
 To use this tool, you need to create a `.csv` file with the following columns:  
 
@@ -11,10 +26,11 @@ To use this tool, you need to create a `.csv` file with the following columns:
 - **MTS**      Mutation: <oldAA><POS><newAA>_<oldAA><POS><newAA>_.....
 - **DDG** (optional)  
 
-Then, place the file in the `src/Data/` directory and run the following command to get predictions:  
 
 ```sh
-python main.py FILE_NAME
+python src/main.py PATH_FILE_NAME
 ```
+
+
 This will generate a new CSV file in the Results folder:
 Results/Result_FILE_NAME.csv
