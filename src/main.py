@@ -51,8 +51,8 @@ def process_and_predict(df_path, model, device):
     Returns tuple of (direct_predictions, inverse_predictions)
     """
     # Load and preprocess data
-    full_data_path = os.path.join(DATA_DIR, df_path)
-    df_preprocessed = process_data(full_data_path)
+    #full_data_path = os.path.join(DATA_DIR, df_path)
+    df_preprocessed = process_data(df_path)
 
     # Create dataloaders for both directions
     dataloader_test_dir = dataloader_generation_pred(
@@ -69,12 +69,15 @@ def process_and_predict(df_path, model, device):
         inv=True
     )
 
-    # Generate predictions
-    predictions_dir = model_performance_test(model, dataloader_test_dir)
-    predictions_inv = model_performance_test(model, dataloader_test_inv)
+    # # Generate predictions
+    # predictions_dir = model_performance_test(model, dataloader_test_dir)
+    # predictions_inv = model_performance_test(model, dataloader_test_inv)
 
-    return (torch.cat(predictions_dir, dim=0).cpu().numpy(),
-            torch.cat(predictions_inv, dim=0).cpu().numpy())
+    # Generate predictions and convert to pandas Series
+    predictions_dir = pd.Series(torch.cat(model_performance_test(model, dataloader_test_dir), dim=0).cpu().numpy())
+    predictions_inv = pd.Series(torch.cat(model_performance_test(model, dataloader_test_inv), dim=0).cpu().numpy())
+
+    return predictions_dir, predictions_inv
 
 def save_results(input_path, predictions, results_dir=RESULTS_DIR):
     """Save predictions to CSV in RESULTS_DIR"""
@@ -95,6 +98,7 @@ def main():
     set_seed(SEED)
     device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
     print(f"Processing dataset: {args.df_path}")
+    print(f"Using device: {device}")
 
     try:
         # Load pretrained model
