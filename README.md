@@ -33,4 +33,4 @@ python src/main.py PATH_FILE_NAME
 
 
 This will generate a new CSV file in the Results folder:
-Results/Result_FILE_NAME.csv
+results/result_FILE_NAME.csv
