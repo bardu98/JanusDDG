@@ -12,7 +12,7 @@ args = parser.parse_args()
 print(f"Dataset processed: {args.df_path}")
 
 # preprocessing with ESM2 650ML param
-df_preprocessed = process_data('../Data/' + args.df_path)
+df_preprocessed = process_data('../data/' + args.df_path)
 
 def set_seed(seed):
     random.seed(seed)  # Python random
@@ -43,9 +43,9 @@ all_predictions_test_dir = model_performance_test(best_model,dataloader_test_dir
 all_predictions_test_inv = model_performance_test(best_model,dataloader_test_inv)
 
 
-df_output = pd.read_csv('../Data/' + args.df_path)
+df_output = pd.read_csv('../data/' + args.df_path)
 df_output['DDG_JanusDDG'] = pd.Series(torch.cat(all_predictions_test_dir, dim=0).cpu()).values
-df_output.to_csv(f'../Results/Result_{args.df_path}', index=False)   
+df_output.to_csv(f'../results/Result_{args.df_path}', index=False)   
 
 print(f'\n ________Processed: {args.df_path}__________ \n')
 

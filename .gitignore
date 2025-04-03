@@ -1,0 +1,55 @@
+ Byte-compiled / optimized / DLL files
+__pycache__/
+*.py[cod]
+*$py.class
+
+# Virtual environment
+venv/
+.env/
+
+# Jupyter Notebook checkpoints
+.ipynb_checkpoints/
+
+# Logs and database files
+*.log
+db.sqlite3
+
+# Python packaging
+build/
+dist/
+*.egg-info/
+
+# Jupyter Notebook metadata
+**/.ipynb_checkpoints
+
+# VSCode settings
+.vscode/
+
+# MacOS system files
+.DS_Store
+
+# PyCharm settings
+.idea/
+
+# Coverage reports
+htmlcov/
+*.cover
+.coverage
+.cache
+nosetests.xml
+coverage.xml
+*.coveragerc
+
+# Temporary files
+*.tmp
+*.swp
+*.swo
+~*
+
+# Large data files
+*.h5
+*.csv
+*.tsv
+*.json
+*.pkl
+*.joblib
