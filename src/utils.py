@@ -10,6 +10,8 @@ from scipy.stats import pearsonr, spearmanr
 import random
 from sklearn.metrics import root_mean_squared_error,mean_absolute_error, accuracy_score,mean_squared_error
 from torch.utils.data import DataLoader, Dataset
+import argparse
+import os
 
 
 
@@ -242,23 +244,6 @@ def collate_fn(batch):
 
 
 
-class Cross_Attention_DDG(nn.Module):
-    
-    def __init__(self, base_module, cross_att=False, dual_cross_att= False,**transf_parameters):
-        super().__init__()
-        self.base_ddg = base_module(**transf_parameters, cross_att=cross_att, dual_cross_att= dual_cross_att).to(device)
-    
-    def forward(self, x_wild, x_mut, length, train = True):
-
-        delta_x = x_wild - x_mut
-        output_TCA = self.base_ddg(delta_x, x_wild, length)
-
-        # inv Janus
-        delta_x_inv = x_mut -x_wild
-        output_TCA_inv = self.base_ddg(delta_x_inv, x_mut, length)
-        
-        return (output_TCA - output_TCA_inv)/2
-
 
 def output_model_from_batch(batch, model, device,train=True):
 
@@ -270,203 +255,6 @@ def output_model_from_batch(batch, model, device,train=True):
     output_ddg = model(x_wild, x_mut, length, train = train)
     
     return output_ddg
-
-import torch
-import torch.nn as nn
-
-
-def apply_masked_pooling(position_attn_output, padding_mask):
-
-    # Convert mask to float for element-wise multiplication
-    padding_mask = padding_mask.float()
-
-    # Global Average Pooling (GAP) - Exclude padded tokens
-    # Sum only over valid positions (padding_mask is False for valid positions)
-    sum_output = torch.sum(position_attn_output * (1 - padding_mask.unsqueeze(-1)), dim=1)  # (batch_size, feature_dim)
-    valid_count = torch.sum((1 - padding_mask).float(), dim=1)  # (batch_size,)
-    gap = sum_output / valid_count.unsqueeze(-1)  # Divide by number of valid positions
-
-    # Global Max Pooling (GMP) - Exclude padded tokens
-    # Set padded positions to -inf so they don't affect the max computation
-    position_attn_output_masked = position_attn_output * (1 - padding_mask.unsqueeze(-1)) + (padding_mask.unsqueeze(-1) * (- 1e10))
-    gmp, _ = torch.max(position_attn_output_masked, dim=1)  # (batch_size, feature_dim)
-
-    return gap, gmp
-
-
-class SinusoidalPositionalEncoding(nn.Module):
-    def __init__(self, embedding_dim, max_len=3700):    
-
-        super(SinusoidalPositionalEncoding, self).__init__()
-        pe = torch.zeros(max_len, embedding_dim)
-        position = torch.arange(0, max_len, dtype=torch.float).unsqueeze(1)
-        div_term = torch.exp(torch.arange(0, embedding_dim, 2).float() * (-torch.log(torch.tensor(10000.0)) / embedding_dim))
-        pe[:, 0::2] = torch.sin(position * div_term)
-        pe[:, 1::2] = torch.cos(position * div_term)
-        pe = pe.unsqueeze(0)  # Shape (1, max_len, embedding_dim)
-        self.register_buffer('pe', pe)  # Salvato come tensore fisso (non parametro)
-
-    def forward(self, x):
-        return x + self.pe[:, :x.size(1), :]
-
-
-class TransformerRegression(nn.Module):
-    def __init__(self, input_dim=1280, num_heads=8, dropout_rate=0., num_experts=1, f_activation = nn.ReLU(), kernel_size=20, cross_att = True,
-                dual_cross_att=True):
-        
-        super(TransformerRegression, self).__init__()
-        self.cross_att = cross_att
-        self.dual_cross_att = dual_cross_att
-        
-        print(f'Cross Attention: {cross_att}')
-        print(f'Dual Cross Attention: {dual_cross_att}')
-
-        self.embedding_dim = input_dim
-        self.act = f_activation                                       
-        self.max_len = 3700
-        out_channels = 128  #num filtri conv 1D                  
-        kernel_size = 20
-        padding = 0
-        
-        self.conv1d = nn.Conv1d(in_channels=self.embedding_dim, 
-                                             out_channels=out_channels, 
-                                             kernel_size=kernel_size, 
-                                             padding=padding) 
-        
-        self.conv1d_wild = nn.Conv1d(in_channels=self.embedding_dim, 
-                                             out_channels=out_channels, 
-                                             kernel_size=kernel_size, 
-                                             padding=padding)
-
-        self.norm1 = nn.LayerNorm(out_channels)
-        self.norm2 = nn.LayerNorm(out_channels)
-        
-        # Cross-attention layers
-        self.positional_encoding = SinusoidalPositionalEncoding(out_channels, 3700) 
-        self.speach_att_type = True
-        self.multihead_attention = nn.MultiheadAttention(embed_dim=out_channels, num_heads=num_heads, dropout=dropout_rate, batch_first=True )
-        self.inverse_attention = nn.MultiheadAttention(embed_dim=out_channels, num_heads=num_heads, dropout=dropout_rate, batch_first =True)
-        
-        if cross_att:
-            # Router (learns which expert to choose per token)
-            if dual_cross_att:
-                dim_position_wise_FFN = out_channels*2
-            else:
-                dim_position_wise_FFN = out_channels
-
-
-        else:
-            dim_position_wise_FFN = out_channels
-        
-        self.norm3 = nn.LayerNorm(dim_position_wise_FFN)
-        self.norm4 = nn.LayerNorm(dim_position_wise_FFN)        
-        self.router = nn.Linear(dim_position_wise_FFN, num_experts) 
-        self.num_experts = num_experts
-        self.experts = nn.ModuleList([nn.Sequential(
-            nn.Linear(dim_position_wise_FFN, 512),
-            self.act,
-            nn.Linear(512, dim_position_wise_FFN)
-        ) for _ in range(num_experts)])
-
-        self.Linear_ddg = nn.Linear(dim_position_wise_FFN*2, 1)
-
-    def create_padding_mask(self, length, seq_len, batch_size):
-        """
-        Create a padding mask for multihead attention.
-        length: Tensor of shape (batch_size,) containing the actual lengths of the sequences.
-        seq_len: The maximum sequence length.
-        batch_size: The number of sequences in the batch.
-        
-        Returns a padding mask of shape (batch_size, seq_len).
-        """
-        mask = torch.arange(seq_len, device=length.device).unsqueeze(0) >= length.unsqueeze(1)
-        return mask
-
-    def forward(self, delta_w_m, x_wild, length):
-            
-            delta_w_m = delta_w_m.transpose(1, 2)  # (batch_size, feature_dim, seq_len) -> (seq_len, batch_size, feature_dim)
-            C_delta_w_m = self.conv1d(delta_w_m)
-            # C_delta_w_m = self.act(C_delta_w_m)  
-            C_delta_w_m = C_delta_w_m.transpose(1, 2)  # (seq_len, batch_size, feature_dim) -> (batch_size, seq_len, feature_dim)
-            C_delta_w_m = self.positional_encoding(C_delta_w_m)
-            
-            x_wild = x_wild.transpose(1, 2)  # (batch_size, feature_dim, seq_len) -> (seq_len, batch_size, feature_dim)
-            C_x_wild = self.conv1d_wild(x_wild)
-            # C_x_wild = self.act(C_x_wild)  
-            C_x_wild = C_x_wild.transpose(1, 2)  # (seq_len, batch_size, feature_dim) -> (batch_size, seq_len, feature_dim)
-            C_x_wild = self.positional_encoding(C_x_wild)            
-            
-            batch_size, seq_len, feature_dim = C_x_wild.size()
-
-            padding_mask = self.create_padding_mask(length, seq_len, batch_size)        
-
-            if self.cross_att :
-                if self.dual_cross_att:
-                    
-                    if self.speach_att_type:
-                        print('ATTENTION TYPE: Dual cross Attention\n q = wild , k = delta, v = delta and q = delta , k = wild, v = wild \n ----------------------------------')
-                        self.speach_att_type = False
-                        
-                    direct_attn_output, _ = self.multihead_attention(C_x_wild, C_delta_w_m, C_delta_w_m, key_padding_mask=padding_mask)
-                    direct_attn_output += C_delta_w_m 
-                    direct_attn_output = self.norm1(direct_attn_output)                        
-                    
-                    inverse_attn_output, _ = self.inverse_attention(C_delta_w_m, C_x_wild, C_x_wild, key_padding_mask=padding_mask)                   
-                    inverse_attn_output += C_x_wild  
-                    inverse_attn_output = self.norm2(inverse_attn_output)
-                    
-                    attn_output = torch.cat([direct_attn_output, inverse_attn_output], dim=-1)
-
-                else:
-                    if self.speach_att_type:
-                        print('ATTENTION TYPE: Cross Attention \n q = wild , k = delta, v = delta  \n ----------------------------------')
-                        self.speach_att_type = False
-
-                    attn_output, _ = self.multihead_attention(C_x_wild, C_delta_w_m, C_delta_w_m, key_padding_mask=padding_mask)
-                    attn_output += C_delta_w_m 
-                    attn_output = self.norm1(attn_output) 
-            
-            else:
-                if self.speach_att_type:
-                    print('ATTENTION TYPE: Self Attention \n q = delta , k = delta, v = delta  \n ----------------------------------')
-                    self.speach_att_type = False
-                
-                attn_output, _ = self.multihead_attention(C_delta_w_m, C_delta_w_m, C_delta_w_m, key_padding_mask=padding_mask)
-                attn_output += C_delta_w_m
-                attn_output = self.norm1(attn_output)
-
-
-            # ########
-            # # Route tokens to experts
-            # routing_logits = self.router(attn_output)  # Shape: [batch, seq_len, num_experts]
-            # routing_weights = F.softmax(routing_logits, dim=-1)  # Probability distribution over experts
-            # expert_indices = torch.argmax(routing_weights, dim=-1)  # Choose the most probable expert for each token
-            
-            # # Apply selected expert
-            # batch_size, seq_len, embed_dim = attn_output.shape
-            # output = torch.zeros_like(attn_output)
-            # for i in range(self.num_experts):
-            #     mask = (expert_indices == i).unsqueeze(-1).float()  # Mask for tokens assigned to expert i
-            #     expert_out = self.experts[i](attn_output) * mask  # Apply expert only to selected tokens
-            #     output += expert_out  # Aggregate expert outputs
-            # ############ù
-
-            output = self.experts[0](attn_output)
-
-            position_attn_output = attn_output + output
-
-            position_attn_output = self.norm3(position_attn_output)
-    
-            gap, gmp = apply_masked_pooling(position_attn_output, padding_mask)
-    
-            # Concatenate GAP and GMP
-            pooled_output = torch.cat([gap, gmp], dim=-1)  # (batch_size, 2 * feature_dim)
-    
-            # Pass through FFNN to predict DDG
-            x = self.Linear_ddg(pooled_output)        
-            
-            return x.squeeze(-1)
-
 
 
 def dataloader_generation_pred(dataset_test, batch_size = 128, dataloader_shuffle = True, inv= False):
@@ -533,3 +321,78 @@ def metrics(pred_dir=None, pred_inv=None, true_dir=None):
         
         print(f'PCC d-r: {pearsonr(pred_dir,pred_inv)}\n')
         print(f'anti-symmetry bias: {np.mean(pred_dir + pred_inv)}\n-----------------------\n')
+
+
+
+######################
+#MAIN.PY FUNCTIONS
+#######################
+
+MODELS_DIR = './models'       # Directory for trained models
+RESULTS_DIR = './results'     # Directory to save prediction results
+DATA_DIR = './data'           # Directory containing input data
+
+
+def parse_arguments():
+    """Parse command line arguments for input dataset path"""
+    parser = argparse.ArgumentParser(description="Dataset processing and prediction")
+    parser.add_argument("df_path", type=str, help="Path to the input dataset")
+    return parser.parse_args()
+
+
+
+def load_model(model_name, device):
+    """Load pretrained model from MODELS_DIR"""
+    model_path = os.path.join(MODELS_DIR, model_name)
+    if not os.path.exists(model_path):
+        raise FileNotFoundError(f"Model file {model_path} not found")
+
+    # Load model and set to evaluation mode
+    model = torch.load(model_path, map_location=device)
+    model.eval()
+    return model
+
+def process_and_predict(df_path, model, device):
+    """
+    Process input data and generate predictions
+    Returns tuple of (direct_predictions, inverse_predictions)
+    """
+    # Load and preprocess data
+    df_preprocessed = process_data(df_path)
+
+    # Create dataloaders for both directions
+    dataloader_test_dir = dataloader_generation_pred(
+        dataset_test=df_preprocessed,
+        batch_size=1,
+        dataloader_shuffle=False,
+        inv=False
+    )
+
+    dataloader_test_inv = dataloader_generation_pred(
+        dataset_test=df_preprocessed,
+        batch_size=1,
+        dataloader_shuffle=False,
+        inv=True
+    )
+
+    # Generate predictions and convert to pandas Series
+    predictions_dir = pd.Series(torch.cat(model_performance_test(model, dataloader_test_dir), dim=0).cpu().numpy())
+    predictions_inv = pd.Series(torch.cat(model_performance_test(model, dataloader_test_inv), dim=0).cpu().numpy())
+
+    return predictions_dir, predictions_inv
+
+def save_results(input_path, predictions, results_dir=RESULTS_DIR):
+    """Save predictions to CSV in RESULTS_DIR"""
+    df_output = pd.read_csv(input_path)
+    df_output['DDG_JanusDDG'] = predictions  # Add prediction column
+
+    # Ensure output directory exists
+    os.makedirs(results_dir, exist_ok=True)
+    output_path = os.path.join(results_dir, f"Result_{os.path.basename(input_path)}")
+
+    df_output.to_csv(output_path, index=False)
+    return output_path
+
+
+
+
