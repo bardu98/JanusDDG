@@ -1,5 +1,8 @@
 # JanusDDG  
 
+![JanusDDG logo](./images/overwie janus unfolded.png)
+
+
 Instructions for using the protein stability prediction tool presented in the paper titled  *JanusDDG: A Thermodynamics-Compliant Model for
 Sequence-Based Protein Stability via Two-Fronts Multi-Head
 Attention*. [ArXive](https://arxiv.org/pdf/2504.03278)
