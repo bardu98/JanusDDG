@@ -1,6 +1,6 @@
 # JanusDDG  
 
-<img src="./images/JanusDDG_volti_capovolti.png" alt="JanusDDG logo" width="500">
+<img src="./images/JanusDDG_image.png" alt="JanusDDG logo" width="500">
 
 
 
