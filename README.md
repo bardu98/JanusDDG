@@ -18,7 +18,7 @@ We used the convention where a positive $\Delta\Delta G$ indicates a stabilizing
 
 ## Prerequisites
 
-- Conda package manager (Miniconda or Anaconda installed)
+- Conda package manager (Miniconda or Anaconda installed).
 
 ## Installation
 
@@ -37,8 +37,8 @@ To use this tool, you need to create a `.csv` file with the following columns (t
 - **Sequence:** Amino acid sequence of the full wild-type protein. Example: `SACGL...`.
 - **MTS:** Mutations in the format `<oldAA><POS><newAA>_<oldAA><POS><newAA>_...`.  
   Positions start at 1 for the first amino acid in the sequence.  
-  Example: `A30Y_C65G`
-- **DDG:** Experimental ΔΔG values (optional). Example: `-0.5`
+  Example: `A30Y_C65G`.
+- **DDG:** Experimental ΔΔG values (optional). Example: `-0.5`.
 
 
 ```sh
