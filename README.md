@@ -1,8 +1,8 @@
 # JanusDDG  
 
-Protein stability prediction tool presented in the *JanusDDG: A Thermodynamics-Compliant Model for
+Protein stability prediction tool presented in the paper titled  *JanusDDG: A Thermodynamics-Compliant Model for
 Sequence-Based Protein Stability via Two-Fronts Multi-Head
-Attention* paper. [ArXive](https://arxiv.org/pdf/2504.03278)
+Attention*. [ArXive](https://arxiv.org/pdf/2504.03278)
 
 ## Prerequisites
 
