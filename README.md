@@ -34,5 +34,5 @@ python src/main.py PATH_FILE_NAME
 ```
 
 
-This will generate a new CSV file in the Results folder:
-results/result_FILE_NAME.csv
+This will generate a new CSV file in the Results folder with the DDG predictions from JanusDDG:
+`results/result_FILE_NAME.csv`.
