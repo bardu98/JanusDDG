@@ -142,42 +142,16 @@ class TransformerRegression(nn.Module):
             batch_size, seq_len, feature_dim = C_x_wild.size()
 
             padding_mask = self.create_padding_mask(length, seq_len, batch_size)        
-
-            if self.cross_att :
-                if self.dual_cross_att:
-                    
-                    if self.speach_att_type:
-                        print('ATTENTION TYPE: Dual cross Attention\n q = wild , k = delta, v = delta and q = delta , k = wild, v = wild \n ----------------------------------')
-                        self.speach_att_type = False
                         
-                    direct_attn_output, _ = self.multihead_attention(C_x_wild, C_delta_w_m, C_delta_w_m, key_padding_mask=padding_mask)
-                    direct_attn_output += C_delta_w_m 
-                    direct_attn_output = self.norm1(direct_attn_output)                        
-                    
-                    inverse_attn_output, _ = self.inverse_attention(C_delta_w_m, C_x_wild, C_x_wild, key_padding_mask=padding_mask)                   
-                    inverse_attn_output += C_x_wild  
-                    inverse_attn_output = self.norm2(inverse_attn_output)
-                    
-                    attn_output = torch.cat([direct_attn_output, inverse_attn_output], dim=-1)
-
-                else:
-                    if self.speach_att_type:
-                        print('ATTENTION TYPE: Cross Attention \n q = wild , k = delta, v = delta  \n ----------------------------------')
-                        self.speach_att_type = False
-
-                    attn_output, _ = self.multihead_attention(C_x_wild, C_delta_w_m, C_delta_w_m, key_padding_mask=padding_mask)
-                    attn_output += C_delta_w_m 
-                    attn_output = self.norm1(attn_output) 
+            direct_attn_output, _ = self.multihead_attention(C_x_wild, C_delta_w_m, C_delta_w_m, key_padding_mask=padding_mask)
+            direct_attn_output += C_delta_w_m 
+            direct_attn_output = self.norm1(direct_attn_output)                        
             
-            else:
-                if self.speach_att_type:
-                    print('ATTENTION TYPE: Self Attention \n q = delta , k = delta, v = delta  \n ----------------------------------')
-                    self.speach_att_type = False
-                
-                attn_output, _ = self.multihead_attention(C_delta_w_m, C_delta_w_m, C_delta_w_m, key_padding_mask=padding_mask)
-                attn_output += C_delta_w_m
-                attn_output = self.norm1(attn_output)
-
+            inverse_attn_output, _ = self.inverse_attention(C_delta_w_m, C_x_wild, C_x_wild, key_padding_mask=padding_mask)                   
+            inverse_attn_output += C_x_wild  
+            inverse_attn_output = self.norm2(inverse_attn_output)
+            
+            attn_output = torch.cat([direct_attn_output, inverse_attn_output], dim=-1)
 
             output = self.experts[0](attn_output)
 

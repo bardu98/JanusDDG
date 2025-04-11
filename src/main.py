@@ -18,7 +18,7 @@ def main():
 
     try:
         # Load pretrained model
-        model = load_model("JanusDDG.pth", device)
+        model = load_model('JanusDDG.pth',device)#("JanusDDG.pth", device) #('JanusDDG_terzo_fine_tuning.pth',device)
 
         # Process data and make predictions
         pred_dir, pred_inv = process_and_predict(args.df_path, model, device)
