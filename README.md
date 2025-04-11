@@ -21,10 +21,10 @@ conda activate janus_env
 
 To use this tool, you need to create a `.csv` file with the following columns:  
 
-- **ID** Unique ID for each Mutation
-- **Sequence**  AA Sequence
-- **MTS**      Mutation: <oldAA><POS><newAA>_<oldAA><POS><newAA>_.....
-- **DDG** (optional)  
+- **ID** Unique ID for each Mutation;
+- **Sequence**  AA Sequence;
+- **MTS** Mutation: `<oldAA><POS><newAA>_<oldAA><POS><newAA>_...` es: `A30Y_C65G`;
+- **DDG** DDG values (optional).  
 
 
 ```sh
