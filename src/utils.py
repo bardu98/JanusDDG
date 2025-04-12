@@ -19,11 +19,10 @@ from data_class import DeltaDataset
 # ESM2 Function #
 #################
 
-def Esm2_embedding(seq):
+def Esm2_embedding(seq,device):
 
     model_esm, alphabet_esm = esm.pretrained.esm2_t33_650M_UR50D()
     
-    device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
     model_esm = model_esm.to(device)
     batch_converter_esm = alphabet_esm.get_batch_converter()
     model_esm.eval()
@@ -130,8 +129,8 @@ def dataset_builder(dataset_mutations, dataset_sequences,debug=True):
                 print(f'Errore:{id}')
                 continue
             
-            sample_protein['wild_type'] = Esm2_embedding(sequence_wild)
-            sample_protein['mut_type'] = Esm2_embedding(mut_sequence)
+            sample_protein['wild_type'] = Esm2_embedding(sequence_wild, device)
+            sample_protein['mut_type'] = Esm2_embedding(mut_sequence, device)
             
             #insert true lenght
             sample_protein['length'] = len(sequence_wild)
@@ -238,7 +237,7 @@ def dataloader_generation_pred(dataset_test, batch_size = 128, dataloader_shuffl
     return dataloader_test
 
 
-def model_performance_test(model, dataloader_test):
+def model_performance_test(model, dataloader_test, device):
 
     model.eval()
     all_predictions_test = []
@@ -348,8 +347,8 @@ def process_and_predict(df_path, model, device):
     )
 
     # Generate predictions and convert to pandas Series
-    predictions_dir = pd.Series(torch.cat(model_performance_test(model, dataloader_test_dir), dim=0).cpu().numpy())
-    predictions_inv = pd.Series(torch.cat(model_performance_test(model, dataloader_test_inv), dim=0).cpu().numpy())
+    predictions_dir = pd.Series(torch.cat(model_performance_test(model, dataloader_test_dir, device), dim=0).cpu().numpy())
+    predictions_inv = pd.Series(torch.cat(model_performance_test(model, dataloader_test_inv, device), dim=0).cpu().numpy())
 
     return predictions_dir, predictions_inv
 
