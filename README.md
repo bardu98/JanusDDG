@@ -49,6 +49,13 @@ python src/main.py PATH_FILE_NAME
 This will generate a new CSV file in the Results folder with the DDG predictions from JanusDDG:
 `results/result_FILE_NAME.csv`.
 
+## Example
+
+Run the following command to generate predictions for the s669 dataset.
+From the JanusDDG directory:
+```sh
+python src/main.py data/s669_to_process.csv
+```
 
 ## How to Cite
 
