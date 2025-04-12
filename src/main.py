@@ -5,7 +5,7 @@ import numpy as np
 import pandas as pd
 from utils import process_data,  dataloader_generation_pred, model_performance_test, metrics, parse_arguments, load_model, process_and_predict, save_results
 from model import Cross_Attention_DDG, apply_masked_pooling, SinusoidalPositionalEncoding, TransformerRegression
-
+import esm
 
 def main():
     """Main execution pipeline"""
