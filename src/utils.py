@@ -19,13 +19,7 @@ from data_class import DeltaDataset
 # ESM2 Function #
 #################
 
-def Esm2_embedding(seq,device):
-
-    model_esm, alphabet_esm = esm.pretrained.esm2_t33_650M_UR50D()
-    
-    model_esm = model_esm.to(device)
-    batch_converter_esm = alphabet_esm.get_batch_converter()
-    model_esm.eval()
+def Esm2_embedding(seq, model_esm, batch_converter_esm, device):
     
     sequences = [("protein", seq),]
     
@@ -96,7 +90,7 @@ def Create_mut_sequence_multiple(sequence_wild, position_real, old_AA, new_AA, d
     return mut_sequence
 
 
-def dataset_builder(dataset_mutations, dataset_sequences, device, debug=True):
+def dataset_builder(dataset_mutations, dataset_sequences,model_esm, batch_converter_esm , device, debug=True):
     
     dataset = [] 
     lista_proteine = set(dataset_sequences['ID'])
@@ -129,8 +123,8 @@ def dataset_builder(dataset_mutations, dataset_sequences, device, debug=True):
                 print(f'Errore:{id}')
                 continue
             
-            sample_protein['wild_type'] = Esm2_embedding(sequence_wild, device)
-            sample_protein['mut_type'] = Esm2_embedding(mut_sequence, device)
+            sample_protein['wild_type'] = Esm2_embedding(sequence_wild,model_esm, batch_converter_esm, device)
+            sample_protein['mut_type'] = Esm2_embedding(mut_sequence,model_esm, batch_converter_esm, device)
             
             #insert true lenght
             sample_protein['length'] = len(sequence_wild)
@@ -150,7 +144,7 @@ def dataset_builder(dataset_mutations, dataset_sequences, device, debug=True):
     return dataset
 
 
-def process_data(path_df, device):
+def process_data(path_df,model_esm, batch_converter_esm ,device):
     
     df = pd.read_csv(path_df)
     
@@ -163,7 +157,7 @@ def process_data(path_df, device):
     dataset_mutations['New_AA'] = dataset_mutations.apply(new_aa, axis = 1)
     dataset_mutations['Pos_AA'] = dataset_mutations['Pos_AA'].map(lambda x: [i-1 for i in x])
     
-    dataset_processed = dataset_builder(dataset_mutations, dataset_sequences, device,debug=False)
+    dataset_processed = dataset_builder(dataset_mutations, dataset_sequences, model_esm, batch_converter_esm, device,debug=False)
     
     return dataset_processed
 
@@ -323,13 +317,13 @@ def load_model(model_name, device):
     model.eval()
     return model
 
-def process_and_predict(df_path, model, device):
+def process_and_predict(df_path, model,model_esm, batch_converter_esm, device):
     """
     Process input data and generate predictions
     Returns tuple of (direct_predictions, inverse_predictions)
     """
     # Load and preprocess data
-    df_preprocessed = process_data(df_path, device)
+    df_preprocessed = process_data(df_path,model_esm, batch_converter_esm, device)
 
     # Create dataloaders for both directions
     dataloader_test_dir = dataloader_generation_pred(
