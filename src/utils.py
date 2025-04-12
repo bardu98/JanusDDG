@@ -12,7 +12,7 @@ from sklearn.metrics import root_mean_squared_error,mean_absolute_error, accurac
 from torch.utils.data import DataLoader, Dataset
 import argparse
 import os
-
+from data_class import DeltaDataset
 
 
 #################
