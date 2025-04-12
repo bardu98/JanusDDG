@@ -1,5 +1,5 @@
 import torch
-
+from torch.utils.data import Dataset
 
 class DeltaDataset(Dataset):
     def __init__(self, data, dim_embedding, inv = False):
