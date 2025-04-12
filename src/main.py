@@ -17,6 +17,12 @@ def main():
     print(f"Using device: {device}")
 
     try:
+
+        model_esm, alphabet_esm = esm.pretrained.esm2_t33_650M_UR50D()
+        model_esm = model_esm.to(device)
+        batch_converter_esm = alphabet_esm.get_batch_converter()
+        model_esm.eval()
+        
         # Load pretrained model
         model = load_model('JanusDDG_fine_tuned.pth',device)
 
