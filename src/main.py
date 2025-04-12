@@ -27,7 +27,7 @@ def main():
         model = load_model('JanusDDG_fine_tuned.pth',device)
 
         # Process data and make predictions
-        pred_dir, pred_inv = process_and_predict(args.df_path, model, device)
+        pred_dir, pred_inv = process_and_predict(args.df_path, model,model_esm,batch_converter_esm, device)
 
         # Save results
         output_file = save_results(args.df_path, pred_dir)
