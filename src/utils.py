@@ -245,14 +245,14 @@ def collate_fn(batch):
 
 
 
-def output_model_from_batch(batch, model, device,train=True):
+def output_model_from_batch(batch, model, device):
 
     '''Dato un modello pytorch e batch restituisce: output_modello, True labels'''
     
     x_wild = batch['wild_type'].float().to(device)
     x_mut = batch['mut_type'].float().to(device)
     length = batch['length'].to(device)
-    output_ddg = model(x_wild, x_mut, length, train = train)
+    output_ddg = model(x_wild, x_mut, length)
     
     return output_ddg
 
@@ -275,7 +275,7 @@ def model_performance_test(model, dataloader_test):
        
         for i, batch in enumerate(dataloader_test):
 
-            predictions_test=output_model_from_batch(batch, model, device, train=True)
+            predictions_test=output_model_from_batch(batch, model, device)
             all_predictions_test.append(predictions_test)
     
     return all_predictions_test

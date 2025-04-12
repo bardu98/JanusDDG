@@ -1,15 +1,13 @@
-
-
 import torch
 import torch.nn as nn
 
 class Cross_Attention_DDG(nn.Module):
     
-    def __init__(self, base_module, cross_att=False, dual_cross_att= False,**transf_parameters):
+    def __init__(self, base_module, **transf_parameters):
         super().__init__()
-        self.base_ddg = base_module(**transf_parameters, cross_att=cross_att, dual_cross_att= dual_cross_att).to(device)
+        self.base_ddg = base_module(**transf_parameters).to(device)
     
-    def forward(self, x_wild, x_mut, length, train = True):
+    def forward(self, x_wild, x_mut, length):
 
         delta_x = x_wild - x_mut
         output_TCA = self.base_ddg(delta_x, x_wild, length)
@@ -57,20 +55,14 @@ class SinusoidalPositionalEncoding(nn.Module):
 
 
 class TransformerRegression(nn.Module):
-    def __init__(self, input_dim=1280, num_heads=8, dropout_rate=0., num_experts=1, f_activation = nn.ReLU(), kernel_size=20, cross_att = True,
-                dual_cross_att=True):
+    def __init__(self, input_dim=1280, num_heads=8, dropout_rate=0., f_activation = nn.ReLU(), kernel_size=20):
         
         super(TransformerRegression, self).__init__()
-        self.cross_att = cross_att
-        self.dual_cross_att = dual_cross_att
-        
-        print(f'Cross Attention: {cross_att}')
-        print(f'Dual Cross Attention: {dual_cross_att}')
-        
+
         self.embedding_dim = input_dim
-        self.act = f_activation                                       
-        self.max_len = 3700
-        out_channels = 128              
+        self.act = f_activation
+        self.max_len = 3700 
+        out_channels = 128  #num filtri conv 1D
         kernel_size = 20
         padding = 0
         
@@ -83,38 +75,30 @@ class TransformerRegression(nn.Module):
                                              out_channels=out_channels, 
                                              kernel_size=kernel_size, 
                                              padding=padding)
-        
+
         self.norm1 = nn.LayerNorm(out_channels)
         self.norm2 = nn.LayerNorm(out_channels)
         
         # Cross-attention layers
-        self.positional_encoding = SinusoidalPositionalEncoding(out_channels, 3700) 
+        self.positional_encoding = SinusoidalPositionalEncoding(out_channels, 3700)
         self.speach_att_type = True
         self.multihead_attention = nn.MultiheadAttention(embed_dim=out_channels, num_heads=num_heads, dropout=dropout_rate, batch_first=True )
         self.inverse_attention = nn.MultiheadAttention(embed_dim=out_channels, num_heads=num_heads, dropout=dropout_rate, batch_first =True)
         
-        if cross_att:
-            if dual_cross_att:
-                dim_position_wise_FFN = out_channels*2
-            else:
-                dim_position_wise_FFN = out_channels
+        dim_position_wise_FFN = out_channels*2
 
-
-        else:
-            dim_position_wise_FFN = out_channels
-        
         self.norm3 = nn.LayerNorm(dim_position_wise_FFN)
-        self.norm4 = nn.LayerNorm(dim_position_wise_FFN)        
-        self.router = nn.Linear(dim_position_wise_FFN, num_experts) 
-        self.num_experts = num_experts
-        self.experts = nn.ModuleList([nn.Sequential(
+        self.router = nn.Linear(dim_position_wise_FFN, 1)
+
+        self.pw_ffnn = nn.Sequential(
             nn.Linear(dim_position_wise_FFN, 512),
             self.act,
             nn.Linear(512, dim_position_wise_FFN)
-        ) for _ in range(num_experts)])
-
+            )
+        
         self.Linear_ddg = nn.Linear(dim_position_wise_FFN*2, 1)
 
+    
     def create_padding_mask(self, length, seq_len, batch_size):
         """
         Create a padding mask for multihead attention.
@@ -127,22 +111,27 @@ class TransformerRegression(nn.Module):
         mask = torch.arange(seq_len, device=length.device).unsqueeze(0) >= length.unsqueeze(1)
         return mask
 
+    
     def forward(self, delta_w_m, x_wild, length):
             
-            delta_w_m = delta_w_m.transpose(1, 2)  
+            delta_w_m = delta_w_m.transpose(1, 2)  # (batch_size, feature_dim, seq_len) -> (seq_len, batch_size, feature_dim)
             C_delta_w_m = self.conv1d(delta_w_m)
-            C_delta_w_m = C_delta_w_m.transpose(1, 2)  
+            C_delta_w_m = C_delta_w_m.transpose(1, 2)  # (seq_len, batch_size, feature_dim) -> (batch_size, seq_len, feature_dim)
             C_delta_w_m = self.positional_encoding(C_delta_w_m)
             
-            x_wild = x_wild.transpose(1, 2)  
+            x_wild = x_wild.transpose(1, 2)  # (batch_size, feature_dim, seq_len) -> (seq_len, batch_size, feature_dim)
             C_x_wild = self.conv1d_wild(x_wild)
-            C_x_wild = C_x_wild.transpose(1, 2)  
+            C_x_wild = C_x_wild.transpose(1, 2)  # (seq_len, batch_size, feature_dim) -> (batch_size, seq_len, feature_dim)
             C_x_wild = self.positional_encoding(C_x_wild)            
             
             batch_size, seq_len, feature_dim = C_x_wild.size()
 
             padding_mask = self.create_padding_mask(length, seq_len, batch_size)        
-                        
+                    
+            if self.speach_att_type:
+                print('ATTENTION TYPE: Dual cross Attention\n q = wild , k = delta, v = delta and q = delta , k = wild, v = wild \n ----------------------------------')
+                self.speach_att_type = False
+                
             direct_attn_output, _ = self.multihead_attention(C_x_wild, C_delta_w_m, C_delta_w_m, key_padding_mask=padding_mask)
             direct_attn_output += C_delta_w_m 
             direct_attn_output = self.norm1(direct_attn_output)                        
@@ -153,16 +142,18 @@ class TransformerRegression(nn.Module):
             
             attn_output = torch.cat([direct_attn_output, inverse_attn_output], dim=-1)
 
-            output = self.experts[0](attn_output)
-
+            output = self.pw_ffnn(attn_output)
+    
             position_attn_output = attn_output + output
-
+    
             position_attn_output = self.norm3(position_attn_output)
     
             gap, gmp = apply_masked_pooling(position_attn_output, padding_mask)
     
-            pooled_output = torch.cat([gap, gmp], dim=-1) 
+            # Concatenate GAP and GMP
+            pooled_output = torch.cat([gap, gmp], dim=-1)  # (batch_size, 2 * feature_dim)
     
+            # Pass through FFNN to predict DDG
             x = self.Linear_ddg(pooled_output)        
             
             return x.squeeze(-1)
