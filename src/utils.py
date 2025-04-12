@@ -96,7 +96,7 @@ def Create_mut_sequence_multiple(sequence_wild, position_real, old_AA, new_AA, d
     return mut_sequence
 
 
-def dataset_builder(dataset_mutations, dataset_sequences,debug=True):
+def dataset_builder(dataset_mutations, dataset_sequences, device, debug=True):
     
     dataset = [] 
     lista_proteine = set(dataset_sequences['ID'])
@@ -150,7 +150,7 @@ def dataset_builder(dataset_mutations, dataset_sequences,debug=True):
     return dataset
 
 
-def process_data(path_df):
+def process_data(path_df, device):
     
     df = pd.read_csv(path_df)
     
@@ -163,7 +163,7 @@ def process_data(path_df):
     dataset_mutations['New_AA'] = dataset_mutations.apply(new_aa, axis = 1)
     dataset_mutations['Pos_AA'] = dataset_mutations['Pos_AA'].map(lambda x: [i-1 for i in x])
     
-    dataset_processed = dataset_builder(dataset_mutations, dataset_sequences, debug=False)
+    dataset_processed = dataset_builder(dataset_mutations, dataset_sequences, device,debug=False)
     
     return dataset_processed
 
@@ -329,7 +329,7 @@ def process_and_predict(df_path, model, device):
     Returns tuple of (direct_predictions, inverse_predictions)
     """
     # Load and preprocess data
-    df_preprocessed = process_data(df_path)
+    df_preprocessed = process_data(df_path, device)
 
     # Create dataloaders for both directions
     dataloader_test_dir = dataloader_generation_pred(
