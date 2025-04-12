@@ -19,14 +19,15 @@ import os
 # ESM2 Function #
 #################
 
-model_esm, alphabet_esm = esm.pretrained.esm2_t33_650M_UR50D()
-
-device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
-model_esm = model_esm.to(device)
-batch_converter_esm = alphabet_esm.get_batch_converter()
-model_esm.eval()
-
 def Esm2_embedding(seq, model_esm = model_esm, batch_converter_esm = batch_converter_esm):
+
+    model_esm, alphabet_esm = esm.pretrained.esm2_t33_650M_UR50D()
+    
+    device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
+    model_esm = model_esm.to(device)
+    batch_converter_esm = alphabet_esm.get_batch_converter()
+    model_esm.eval()
+    
     sequences = [("protein", seq),]
     
     batch_labels, batch_strs, batch_tokens = batch_converter_esm(sequences)
