@@ -19,7 +19,7 @@ from data_class import DeltaDataset
 # ESM2 Function #
 #################
 
-def Esm2_embedding(seq, model_esm = model_esm, batch_converter_esm = batch_converter_esm):
+def Esm2_embedding(seq):
 
     model_esm, alphabet_esm = esm.pretrained.esm2_t33_650M_UR50D()
     
